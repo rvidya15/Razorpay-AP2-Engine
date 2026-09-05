@@ -10,7 +10,7 @@ export interface LogEntry {
   action: string;
   status: 'success' | 'failure' | 'PENDING_ESCALATION';
   reason?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   timestamp: string;
 }
 
@@ -33,7 +33,7 @@ interface AgentStore {
   stopPolling: () => void;
   socket: Socket | null;
   visualizerState: 'IDLE' | 'TOKEN_PARSED' | 'VERIFYING_SIGNATURE' | 'SIGNATURE_VALID' | 'ESCALATION_PENDING' | 'SETTLED' | 'REJECTED';
-  setVisualizerState: (state: any) => void;
+  setVisualizerState: (state: AgentStore['visualizerState']) => void;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';

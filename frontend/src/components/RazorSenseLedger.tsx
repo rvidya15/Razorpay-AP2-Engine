@@ -11,15 +11,7 @@ const MOCK_SIGNATURE = 'SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
 
 export default function RazorSenseLedger() {
   const { logs, visualizerState, setVisualizerState } = useAgentStore();
-  const [activeLog, setActiveLog] = useState<LogEntry | null>(null);
-
-  useEffect(() => {
-    // Keep activeLog synced with the latest log that has metadata
-    const latestWithMeta = logs.find(l => l.metadata);
-    if (latestWithMeta) {
-      setActiveLog(latestWithMeta);
-    }
-  }, [logs]);
+  const activeLog = logs.find(l => l.metadata) || null;
 
   if (visualizerState === 'IDLE' || !activeLog) {
     return (
