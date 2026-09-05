@@ -108,7 +108,7 @@ async function run() {
 
     // Initialize the model and bind tools
     const llm = new ChatGoogleGenerativeAI({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-3.6-flash',
       apiKey: GEMINI_API_KEY,
       temperature: 0,
     }).bindTools(tools);
