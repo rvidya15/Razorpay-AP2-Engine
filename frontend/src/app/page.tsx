@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import RazorSenseLedger from '../components/RazorSenseLedger';
 
 export default function Dashboard() {
-  const { logs, thoughts, startPolling, stopPolling, triggerAgent, agentStatus } = useAgentStore();
+  const { logs, thoughts, startPolling, stopPolling, triggerAgent, agentStatus, clearLogs } = useAgentStore();
   const terminalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
