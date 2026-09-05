@@ -63,8 +63,8 @@ export const useAgentStore = create<AgentStore>((set, get) => {
 
     clearLogs: async () => {
       try {
-        await axios.delete(`${API_URL}/logs`);
         set({ logs: [], thoughts: [], visualizerState: 'IDLE' });
+        await axios.delete(`${API_URL}/logs`);
       } catch (error) {
         console.error('Failed to clear logs:', error);
       }
