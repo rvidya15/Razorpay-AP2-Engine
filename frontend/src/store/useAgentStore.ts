@@ -10,7 +10,8 @@ export interface LogEntry {
   action: string;
   status: 'success' | 'failure' | 'PENDING_ESCALATION';
   reason?: string;
-  metadata?: Record<string, unknown>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  metadata?: Record<string, any>;
   timestamp: string;
 }
 
