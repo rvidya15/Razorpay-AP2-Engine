@@ -81,10 +81,11 @@ export const useAgentStore = create<AgentStore>((set, get) => {
       socket.on('new_log', (newLog: LogEntry) => {
         set((state) => ({ logs: [newLog, ...state.logs] }));
         
-        if (newLog.action === 'TOKEN_VERIFICATION') {
+        if (newLog.action === 'TOKEN_ISSUANCE') {
           set({ visualizerState: 'TOKEN_PARSED' });
-          setTimeout(() => set({ visualizerState: 'VERIFYING_SIGNATURE' }), 1000);
-          setTimeout(() => set({ visualizerState: 'SIGNATURE_VALID' }), 2500);
+        } else if (newLog.action === 'TOKEN_VERIFICATION') {
+          set({ visualizerState: 'VERIFYING_SIGNATURE' });
+          setTimeout(() => set({ visualizerState: 'SIGNATURE_VALID' }), 1500);
         } else if (newLog.action === 'ESCALATION_TRIGGERED') {
           set({ visualizerState: 'ESCALATION_PENDING' });
         } else if (newLog.action === 'PAYMENT_SETTLEMENT') {

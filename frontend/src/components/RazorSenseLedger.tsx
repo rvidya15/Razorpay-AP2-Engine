@@ -85,7 +85,7 @@ export default function RazorSenseLedger() {
 
         {/* Stage 1: Token Decoding */}
         <AnimatePresence>
-          {['VERIFYING_SIGNATURE', 'SIGNATURE_VALID', 'ESCALATION_PENDING', 'SETTLED'].includes(visualizerState) && (
+          {['TOKEN_PARSED', 'VERIFYING_SIGNATURE', 'SIGNATURE_VALID', 'ESCALATION_PENDING', 'SETTLED'].includes(visualizerState) && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
