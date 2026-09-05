@@ -65,8 +65,7 @@ export default function RazorSenseLedger() {
         
         {/* Stage 0: Raw Token */}
         <AnimatePresence>
-          {visualizerState !== 'IDLE' && (
-            <motion.div
+          <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className="bg-neutral-950/80 border border-neutral-800 p-4 rounded-xl"
@@ -80,7 +79,6 @@ export default function RazorSenseLedger() {
                 <span className="text-blue-400">{MOCK_SIGNATURE}</span>
               </div>
             </motion.div>
-          )}
         </AnimatePresence>
 
         {/* Stage 1: Token Decoding */}
