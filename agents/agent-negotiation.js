@@ -108,7 +108,7 @@ async function run() {
 
     // Initialize the model and bind tools
     const llm = new ChatGoogleGenerativeAI({
-      model: 'gemini-3.6-flash',
+      model: 'gemini-1.5-flash',
       apiKey: GEMINI_API_KEY,
       temperature: 0,
     }).bindTools(tools);
@@ -143,6 +143,10 @@ async function run() {
       if (!response.tool_calls || response.tool_calls.length === 0) {
         console.log(`\n[Buyer Agent] Final Result:`);
         console.log(response.content);
+        await axios.post(`${BACKEND_URL}/api/agent/thought`, {
+          type: 'thought',
+          content: `[AGENT FINISHED] ${response.content || 'Task complete.'}`
+        }).catch(() => {});
         break;
       }
 
@@ -150,18 +154,19 @@ async function run() {
         console.log(`\n[Buyer Agent] Decided to call tool: ${toolCall.name}`);
         await axios.post(`${BACKEND_URL}/api/agent/thought`, {
           type: 'tool',
-          content: 'Calling tool',
+          content: `Calling tool: ${toolCall.name}`,
           tool_name: toolCall.name
         }).catch(() => {});
 
         const tool = tools.find(t => t.name === toolCall.name);
         if (tool) {
           const toolResult = await tool.invoke(toolCall.args);
-          messages.push(new ToolMessage({
+          messages.push({
+            role: 'tool',
             name: toolCall.name,
             tool_call_id: toolCall.id,
             content: toolResult
-          }));
+          });
         }
       }
     }
