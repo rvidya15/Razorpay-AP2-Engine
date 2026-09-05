@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import RazorSenseLedger from '../components/RazorSenseLedger';
 
 export default function Dashboard() {
-  const { logs, startPolling, stopPolling, triggerAgent, agentStatus } = useAgentStore();
+  const { logs, thoughts, startPolling, stopPolling, triggerAgent, agentStatus } = useAgentStore();
   const terminalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -77,10 +77,28 @@ export default function Dashboard() {
             ref={terminalRef}
             className="flex-grow p-6 overflow-y-auto font-mono text-sm space-y-4"
           >
-            {chronologicalLogs.length === 0 ? (
+            {thoughts.length === 0 && chronologicalLogs.length === 0 ? (
               <div className="text-neutral-600 italic">Waiting for agent activity...</div>
-            ) : (
-              chronologicalLogs.map((log) => (
+            ) : null}
+
+            {/* Render Agent Thoughts */}
+            {thoughts.map((thought, i) => (
+              <motion.div 
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                key={`thought-${i}`} 
+                className={`leading-relaxed ${thought.type === 'tool' ? 'text-blue-300' : 'text-yellow-500'}`}
+              >
+                <span className="text-neutral-500 mr-2">[{new Date(thought.timestamp).toLocaleTimeString()}]</span>
+                <span className="text-neutral-400 mr-2">[Brain]</span>
+                {thought.type === 'tool' 
+                  ? `Executing tool: ${thought.tool_name}` 
+                  : (typeof thought.content === 'string' ? thought.content : JSON.stringify(thought.content))}
+              </motion.div>
+            ))}
+
+            {/* Render Standard Logs */}
+            {chronologicalLogs.map((log) => (
                 <motion.div 
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -105,8 +123,7 @@ export default function Dashboard() {
                     </div>
                   )}
                 </motion.div>
-              ))
-            )}
+              ))}
           </div>
         </div>
 

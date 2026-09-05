@@ -9,6 +9,8 @@ import { settlePayment, resolveEscalation } from './controllers/paymentControlle
 import { searchProducts, createCheckoutSession, completeCheckout } from './controllers/acpController';
 import { verifyAgentToken } from './middlewares/authMiddleware';
 import AuditLedger from './models/AuditLedger';
+import http from 'http';
+import { initSocket, getIO } from './utils/socketManager';
 
 dotenv.config();
 
@@ -18,6 +20,10 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3001;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/razorpay_ap2';
+
+// Create HTTP server instead of listening directly on app
+const server = http.createServer(app);
+initSocket(server);
 
 // Standard Routes
 app.post('/api/tokens/issue', issueToken);
@@ -40,20 +46,29 @@ app.get('/api/logs', async (req, res) => {
 });
 
 app.post('/api/trigger-agent', (req, res) => {
-  const agentScript = path.join(__dirname, '../../agents/agent-negotiation.js');
-  // Load the script via node
-  // Pass GEMINI_API_KEY from environment if possible, or assume it's set in the agents/.env
-  // Execute the child process
-  exec(`node "${agentScript}"`, { cwd: path.join(__dirname, '../../agents') }, (error, stdout, stderr) => {
+  const agentDir = path.resolve(__dirname, '../../agents');
+  const agentScriptPath = path.join(agentDir, 'agent-negotiation.js');
+  
+  exec(`node "${agentScriptPath}"`, { cwd: agentDir }, (error, stdout, stderr) => {
     if (error) {
-      console.error(`Agent execution error: ${error.message}`);
+      console.error(`Error executing agent: ${error.message}`);
       return;
     }
-    if (stderr) console.error(`Agent stderr: ${stderr}`);
-    console.log(`Agent stdout: ${stdout}`);
+    console.log(`Agent Output: ${stdout}`);
   });
+
+  res.status(200).json({ message: 'Agent triggered successfully' });
+});
+
+// New Chain of Thought Endpoint
+app.post('/api/agent/thought', (req, res) => {
+  const { type, content, tool_name } = req.body;
   
-  res.status(200).json({ message: 'Agent triggered successfully. Check logs.' });
+  // Emit directly to frontend via WebSocket
+  const io = getIO();
+  io.emit('agent_thought', { type, content, tool_name, timestamp: new Date() });
+  
+  res.status(200).json({ status: 'ok' });
 });
 
 // Basic health check
@@ -67,7 +82,7 @@ const startServer = async () => {
     await mongoose.connect(MONGO_URI);
     console.log(`Connected to MongoDB at ${MONGO_URI}`);
     
-    app.listen(PORT, () => {
+    server.listen(PORT, () => {
       console.log(`Razorpay AP2 Backend listening on port ${PORT}`);
     });
   } catch (error) {

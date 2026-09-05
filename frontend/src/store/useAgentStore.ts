@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import axios from 'axios';
+import { io, Socket } from 'socket.io-client';
 
 export interface LogEntry {
   _id: string;
@@ -7,31 +8,43 @@ export interface LogEntry {
   agent_id?: string;
   merchant_id?: string;
   action: string;
-  status: 'success' | 'failure';
+  status: 'success' | 'failure' | 'PENDING_ESCALATION';
   reason?: string;
   metadata?: Record<string, any>;
   timestamp: string;
 }
 
+export interface AgentThought {
+  type: string;
+  content: string;
+  tool_name?: string;
+  timestamp: string;
+}
+
 interface AgentStore {
   logs: LogEntry[];
+  thoughts: AgentThought[];
   isPolling: boolean;
   agentStatus: 'idle' | 'running';
   triggerAgent: () => Promise<void>;
   fetchLogs: () => Promise<void>;
   startPolling: () => void;
   stopPolling: () => void;
+  socket: Socket | null;
 }
 
 const API_URL = 'http://localhost:3001/api';
+const SOCKET_URL = 'http://localhost:3001';
 
 export const useAgentStore = create<AgentStore>((set, get) => {
-  let pollInterval: NodeJS.Timeout | null = null;
+  let socket: Socket | null = null;
 
   return {
     logs: [],
+    thoughts: [],
     isPolling: false,
     agentStatus: 'idle',
+    socket: null,
 
     fetchLogs: async () => {
       try {
@@ -44,9 +57,8 @@ export const useAgentStore = create<AgentStore>((set, get) => {
 
     triggerAgent: async () => {
       try {
-        set({ agentStatus: 'running' });
+        set({ agentStatus: 'running', thoughts: [] }); // Clear thoughts on new run
         await axios.post(`${API_URL}/trigger-agent`);
-        // We rely on polling to fetch new logs, but after a successful trigger we set back to idle after a delay
         setTimeout(() => set({ agentStatus: 'idle' }), 5000);
       } catch (error) {
         console.error('Failed to trigger agent:', error);
@@ -58,17 +70,26 @@ export const useAgentStore = create<AgentStore>((set, get) => {
       if (get().isPolling) return;
       set({ isPolling: true });
       get().fetchLogs();
-      pollInterval = setInterval(() => {
-        get().fetchLogs();
-      }, 2000);
+      
+      socket = io(SOCKET_URL);
+      
+      socket.on('new_log', (newLog: LogEntry) => {
+        set((state) => ({ logs: [newLog, ...state.logs] }));
+      });
+
+      socket.on('agent_thought', (thought: AgentThought) => {
+        set((state) => ({ thoughts: [...state.thoughts, thought] }));
+      });
+      
+      set({ socket });
     },
 
     stopPolling: () => {
-      if (pollInterval) {
-        clearInterval(pollInterval);
-        pollInterval = null;
+      if (socket) {
+        socket.disconnect();
+        socket = null;
       }
-      set({ isPolling: false });
+      set({ isPolling: false, socket: null });
     }
   };
 });
