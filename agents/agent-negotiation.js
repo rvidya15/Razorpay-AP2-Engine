@@ -1,177 +1,85 @@
 require('dotenv').config();
-const { ChatGoogleGenerativeAI } = require('@langchain/google-genai');
-const { tool } = require('@langchain/core/tools');
 const axios = require('axios');
-const { z } = require('zod');
-const { ToolMessage } = require('@langchain/core/messages');
 
-// Configuration
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'your_gemini_api_key_here';
 const PORT = process.env.PORT || 3001;
 const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
 
-// Global token state for this run
-let currentScopedToken = null;
-
-// ==========================================
-// 1. LangChain Tools (ACP Protocol)
-// ==========================================
-
-const searchProductsTool = tool(
-  async ({ query }) => {
-    console.log(`[Tool] searchProducts called with query: "${query}"`);
-    try {
-      const res = await axios.post(`${BACKEND_URL}/acp/v1/search`, { query });
-      return JSON.stringify(res.data.products);
-    } catch (error) {
-      return `Error: ${error.message}`;
-    }
-  },
-  {
-    name: 'searchProducts',
-    description: 'Searches the merchant catalog for products matching a query.',
-    schema: z.object({
-      query: z.string().describe('The product search query'),
-    }),
-  }
-);
-
-const createCheckoutSessionTool = tool(
-  async ({ product_id, quantity }) => {
-    console.log(`[Tool] createCheckoutSession called for product: "${product_id}" x ${quantity}`);
-    try {
-      const res = await axios.post(`${BACKEND_URL}/acp/v1/checkout_session`, { product_id, quantity });
-      console.log(`[Tool] Checkout session created: ${res.data.session_id} for total $${res.data.amount}`);
-      return JSON.stringify(res.data);
-    } catch (error) {
-      return `Error: ${error.response ? JSON.stringify(error.response.data) : error.message}`;
-    }
-  },
-  {
-    name: 'createCheckoutSession',
-    description: 'Creates a checkout session for a specific product and quantity.',
-    schema: z.object({
-      product_id: z.string().describe('The ID of the product to purchase'),
-      quantity: z.number().describe('The quantity to purchase'),
-    }),
-  }
-);
-
-const completeCheckoutTool = tool(
-  async ({ session_id }) => {
-    console.log(`[Tool] completeCheckout called for session: "${session_id}"`);
-    try {
-      const res = await axios.post(
-        `${BACKEND_URL}/acp/v1/complete_checkout`,
-        { session_id },
-        { headers: { Authorization: `Bearer ${currentScopedToken}` } }
-      );
-      
-      if (res.data.status === 'PENDING_ESCALATION') {
-        console.log(`[Tool] Escalation Triggered! Waiting for HITL approval for transaction: ${res.data.transaction_id}`);
-        return JSON.stringify(res.data);
-      }
-      
-      console.log(`[Tool] Success! Payment Settled.`);
-      return JSON.stringify(res.data);
-    } catch (error) {
-      console.error(`[Tool] Checkout failed:`, error.response ? error.response.data : error.message);
-      return `Error: ${error.response ? JSON.stringify(error.response.data) : error.message}`;
-    }
-  },
-  {
-    name: 'completeCheckout',
-    description: 'Completes a checkout session using the agent\'s cryptographic spending token.',
-    schema: z.object({
-      session_id: z.string().describe('The checkout session ID returned by createCheckoutSession'),
-    }),
-  }
-);
-
-const tools = [searchProductsTool, createCheckoutSessionTool, completeCheckoutTool];
-
-// ==========================================
-// 2. LangChain Agent Setup & Execution
-// ==========================================
+async function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 async function run() {
-  console.log(`[System] Requesting Scoped Spending Token from Backend...`);
+  console.log(`[System] Starting Deterministic Mock Agent (No API Key Required)`);
+  
   try {
+    // 1. Issue Token
+    console.log(`[System] Requesting Scoped Spending Token from Backend...`);
     const tokenResponse = await axios.post(`${BACKEND_URL}/api/tokens/issue`, {
       agent_id: 'buyer_agent_langchain',
       max_amount: 280, // Limit is 280. Pro Headphones are 299.99 -> triggers 10% Reserve Pay!
       allowed_categories: ['electronics']
     });
-    
-    currentScopedToken = tokenResponse.data.token;
+    const currentScopedToken = tokenResponse.data.token;
     console.log(`[System] Token issued successfully with $280 limit.`);
+    await sleep(1500);
 
-    // Initialize the model and bind tools
-    const llm = new ChatGoogleGenerativeAI({
-      model: 'gemini-3.6-flash',
-      apiKey: GEMINI_API_KEY,
-      temperature: 0,
-    }).bindTools(tools);
+    // 2. Initial Thought
+    await axios.post(`${BACKEND_URL}/api/agent/thought`, {
+      type: 'thought',
+      content: 'I need to purchase the best Noise-canceling headphones available. My maximum budget is $300. I will search the merchant catalog first.'
+    }).catch(() => {});
+    await sleep(2000);
 
-    const budget = 300;
-    const task = `
-      You are an autonomous purchasing agent equipped with tools to interact with an ACP-compliant merchant API.
-      Your task is to purchase the highest quality "Noise-canceling headphones".
-      Your max budget is $${budget}.
+    // 3. Search Tool Call
+    await axios.post(`${BACKEND_URL}/api/agent/thought`, {
+      type: 'tool',
+      content: 'Calling tool: searchProducts',
+      tool_name: 'searchProducts'
+    }).catch(() => {});
+    const searchRes = await axios.post(`${BACKEND_URL}/acp/v1/search`, { query: 'Noise-canceling headphones' });
+    await sleep(2000);
 
-      1. Search for "Noise-canceling headphones".
-      2. Analyze the results and pick the best one that is UNDER OR EQUAL to $${budget}.
-      3. Create a checkout session for that product.
-      4. Complete the checkout using the session ID.
-    `;
+    // 4. Decision Thought
+    await axios.post(`${BACKEND_URL}/api/agent/thought`, {
+      type: 'thought',
+      content: `I found "Pro Noise-Canceling Headphones" (ID: prod_2) for $299.99. This is within my $300 task budget, but my cryptographic token is strictly limited to $280. Since $299.99 is within the 10% threshold, I will initiate checkout and rely on the Human-in-the-Loop Reserve Pay guardrail to authorize the difference.`
+    }).catch(() => {});
+    await sleep(2500);
 
-    console.log(`[Buyer Agent] Starting task with LangChain Tool Calling...`);
+    // 5. Checkout Session Tool Call
+    await axios.post(`${BACKEND_URL}/api/agent/thought`, {
+      type: 'tool',
+      content: 'Calling tool: createCheckoutSession',
+      tool_name: 'createCheckoutSession'
+    }).catch(() => {});
+    const sessionRes = await axios.post(`${BACKEND_URL}/acp/v1/checkout_session`, { product_id: 'prod_2', quantity: 1 });
+    const sessionId = sessionRes.data.session_id;
+    await sleep(2000);
+
+    // 6. Complete Checkout Tool Call
+    await axios.post(`${BACKEND_URL}/api/agent/thought`, {
+      type: 'tool',
+      content: 'Calling tool: completeCheckout',
+      tool_name: 'completeCheckout'
+    }).catch(() => {});
     
-    let messages = [['human', task]];
+    const checkoutRes = await axios.post(
+      `${BACKEND_URL}/acp/v1/complete_checkout`,
+      { session_id: sessionId },
+      { headers: { Authorization: `Bearer ${currentScopedToken}` } }
+    );
+    await sleep(1500);
+
+    // 7. Finish
+    await axios.post(`${BACKEND_URL}/api/agent/thought`, {
+      type: 'thought',
+      content: `[AGENT FINISHED] Payment executed. The server responded with: ${checkoutRes.data.status}.`
+    }).catch(() => {});
     
-    while (true) {
-      const response = await llm.invoke(messages);
-      messages.push(response);
+    console.log(`[System] Mock Agent Finished Successfully.`);
 
-      if (response.content) {
-        await axios.post(`${BACKEND_URL}/api/agent/thought`, {
-          type: 'thought',
-          content: response.content
-        }).catch(() => {});
-      }
-
-      if (!response.tool_calls || response.tool_calls.length === 0) {
-        console.log(`\n[Buyer Agent] Final Result:`);
-        console.log(response.content);
-        await axios.post(`${BACKEND_URL}/api/agent/thought`, {
-          type: 'thought',
-          content: `[AGENT FINISHED] ${response.content || 'Task complete.'}`
-        }).catch(() => {});
-        break;
-      }
-
-      for (const toolCall of response.tool_calls) {
-        console.log(`\n[Buyer Agent] Decided to call tool: ${toolCall.name}`);
-        await axios.post(`${BACKEND_URL}/api/agent/thought`, {
-          type: 'tool',
-          content: `Calling tool: ${toolCall.name}`,
-          tool_name: toolCall.name
-        }).catch(() => {});
-
-        const tool = tools.find(t => t.name === toolCall.name);
-        if (tool) {
-          const toolResult = await tool.invoke(toolCall.args);
-          messages.push({
-            role: 'tool',
-            name: toolCall.name,
-            tool_call_id: toolCall.id,
-            content: toolResult
-          });
-        }
-      }
-    }
   } catch (error) {
-    console.error(`[Agent Crashed]`, error);
+    console.error(`[Mock Agent Crashed]`, error);
     await axios.post(`${BACKEND_URL}/api/agent/thought`, {
       type: 'thought',
       content: `[CRITICAL ERROR] Agent crashed: ${error.message}`
