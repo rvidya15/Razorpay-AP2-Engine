@@ -3,6 +3,7 @@ const { ChatGoogleGenerativeAI } = require('@langchain/google-genai');
 const { tool } = require('@langchain/core/tools');
 const axios = require('axios');
 const { z } = require('zod');
+const { ToolMessage } = require('@langchain/core/messages');
 
 // Configuration
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'your_gemini_api_key_here';
@@ -156,18 +157,20 @@ async function run() {
         const tool = tools.find(t => t.name === toolCall.name);
         if (tool) {
           const toolResult = await tool.invoke(toolCall.args);
-          messages.push({
-            role: 'tool',
+          messages.push(new ToolMessage({
             name: toolCall.name,
             tool_call_id: toolCall.id,
             content: toolResult
-          });
+          }));
         }
       }
     }
-
   } catch (error) {
-    console.error(`[System] Execution failed:`, error);
+    console.error(`[Agent Crashed]`, error);
+    await axios.post(`${BACKEND_URL}/api/agent/thought`, {
+      type: 'thought',
+      content: `[CRITICAL ERROR] Agent crashed: ${error.message}`
+    }).catch(() => {});
   }
 }
 
