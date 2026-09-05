@@ -45,12 +45,19 @@ app.get('/api/logs', async (req, res) => {
   }
 });
 
+let activeAgentProcess: import('child_process').ChildProcess | null = null;
+
 app.post('/api/trigger-agent', (req, res) => {
+  if (activeAgentProcess) {
+    activeAgentProcess.kill();
+    activeAgentProcess = null;
+  }
+
   const agentDir = path.resolve(__dirname, '../../agents');
   const agentScriptPath = path.join(agentDir, 'agent-negotiation.js');
   
-  exec(`node "${agentScriptPath}"`, { cwd: agentDir }, (error, stdout, stderr) => {
-    if (error) {
+  activeAgentProcess = exec(`node "${agentScriptPath}"`, { cwd: agentDir }, (error, stdout, stderr) => {
+    if (error && !error.killed) {
       console.error(`Error executing agent: ${error.message}`);
       return;
     }

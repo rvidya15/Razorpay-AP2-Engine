@@ -62,7 +62,7 @@ export const useAgentStore = create<AgentStore>((set, get) => {
 
     triggerAgent: async () => {
       try {
-        set({ agentStatus: 'running', thoughts: [], visualizerState: 'IDLE' });
+        set({ agentStatus: 'running', thoughts: [], logs: [], visualizerState: 'IDLE' });
         await axios.post(`${API_URL}/trigger-agent`);
         setTimeout(() => set({ agentStatus: 'idle' }), 5000);
       } catch (error) {
