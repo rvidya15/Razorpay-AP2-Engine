@@ -6,7 +6,8 @@ const { z } = require('zod');
 
 // Configuration
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'your_gemini_api_key_here';
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
+const PORT = process.env.PORT || 3001;
+const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
 
 // Global token state for this run
 let currentScopedToken = null;
