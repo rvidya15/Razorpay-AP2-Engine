@@ -28,6 +28,7 @@ interface AgentStore {
   agentStatus: 'idle' | 'running';
   triggerAgent: () => Promise<void>;
   fetchLogs: () => Promise<void>;
+  clearLogs: () => Promise<void>;
   startPolling: () => void;
   stopPolling: () => void;
   socket: Socket | null;
@@ -57,6 +58,15 @@ export const useAgentStore = create<AgentStore>((set, get) => {
         set({ logs: response.data });
       } catch (error) {
         console.error('Failed to fetch logs:', error);
+      }
+    },
+
+    clearLogs: async () => {
+      try {
+        await axios.delete(`${API_URL}/logs`);
+        set({ logs: [], thoughts: [], visualizerState: 'IDLE' });
+      } catch (error) {
+        console.error('Failed to clear logs:', error);
       }
     },
 

@@ -41,27 +41,37 @@ export default function Dashboard() {
           <p className="text-neutral-400 mt-1">Autonomous Agent Payment Protocol (M2M)</p>
         </div>
         
-        <button
-          onClick={triggerAgent}
-          disabled={agentStatus === 'running'}
-          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-300 ${
-            agentStatus === 'running' 
-              ? 'bg-blue-600/50 text-blue-200 cursor-not-allowed shadow-[0_0_15px_rgba(37,99,235,0.3)]'
-              : 'bg-blue-600 hover:bg-blue-500 hover:shadow-[0_0_25px_rgba(37,99,235,0.5)] active:scale-95'
-          }`}
-        >
-          {agentStatus === 'running' ? (
-            <span className="flex items-center gap-2">
-              <Activity className="animate-spin" size={18} />
-              Negotiating...
-            </span>
-          ) : (
-            <span className="flex items-center gap-2">
-              Initialize Agent Task
-              <ArrowRight size={18} />
-            </span>
-          )}
-        </button>
+        <div className="flex gap-4">
+          <button
+            onClick={clearLogs}
+            disabled={agentStatus === 'running'}
+            className="flex items-center gap-2 px-4 py-3 rounded-xl font-medium text-neutral-400 hover:text-white hover:bg-neutral-900 border border-neutral-800 transition-all duration-300"
+          >
+            Reset Demo
+          </button>
+          
+          <button
+            onClick={triggerAgent}
+            disabled={agentStatus === 'running'}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-300 ${
+              agentStatus === 'running' 
+                ? 'bg-blue-600/50 text-blue-200 cursor-not-allowed shadow-[0_0_15px_rgba(37,99,235,0.3)]'
+                : 'bg-blue-600 hover:bg-blue-500 hover:shadow-[0_0_25px_rgba(37,99,235,0.5)] active:scale-95'
+            }`}
+          >
+            {agentStatus === 'running' ? (
+              <span className="flex items-center gap-2">
+                <Activity className="animate-spin" size={18} />
+                Negotiating...
+              </span>
+            ) : (
+              <span className="flex items-center gap-2">
+                Initialize Agent Task
+                <ArrowRight size={18} />
+              </span>
+            )}
+          </button>
+        </div>
       </header>
 
       {/* Main Grid */}

@@ -45,6 +45,15 @@ app.get('/api/logs', async (req, res) => {
   }
 });
 
+app.delete('/api/logs', async (req, res) => {
+  try {
+    await AuditLedger.deleteMany({});
+    res.status(200).json({ message: 'All logs cleared' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to clear logs' });
+  }
+});
+
 let activeAgentProcess: import('child_process').ChildProcess | null = null;
 
 app.post('/api/trigger-agent', (req, res) => {
