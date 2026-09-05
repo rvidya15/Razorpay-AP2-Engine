@@ -31,10 +31,12 @@ interface AgentStore {
   startPolling: () => void;
   stopPolling: () => void;
   socket: Socket | null;
+  visualizerState: 'IDLE' | 'TOKEN_PARSED' | 'VERIFYING_SIGNATURE' | 'SIGNATURE_VALID' | 'ESCALATION_PENDING' | 'SETTLED' | 'REJECTED';
+  setVisualizerState: (state: any) => void;
 }
 
-const API_URL = 'http://localhost:3001/api';
-const SOCKET_URL = 'http://localhost:3001';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const SOCKET_URL = API_URL.replace('/api', '');
 
 export const useAgentStore = create<AgentStore>((set, get) => {
   let socket: Socket | null = null;
@@ -45,6 +47,9 @@ export const useAgentStore = create<AgentStore>((set, get) => {
     isPolling: false,
     agentStatus: 'idle',
     socket: null,
+    visualizerState: 'IDLE',
+
+    setVisualizerState: (state) => set({ visualizerState: state }),
 
     fetchLogs: async () => {
       try {
@@ -57,7 +62,7 @@ export const useAgentStore = create<AgentStore>((set, get) => {
 
     triggerAgent: async () => {
       try {
-        set({ agentStatus: 'running', thoughts: [] }); // Clear thoughts on new run
+        set({ agentStatus: 'running', thoughts: [], visualizerState: 'IDLE' });
         await axios.post(`${API_URL}/trigger-agent`);
         setTimeout(() => set({ agentStatus: 'idle' }), 5000);
       } catch (error) {
@@ -75,6 +80,16 @@ export const useAgentStore = create<AgentStore>((set, get) => {
       
       socket.on('new_log', (newLog: LogEntry) => {
         set((state) => ({ logs: [newLog, ...state.logs] }));
+        
+        if (newLog.action === 'TOKEN_VERIFICATION') {
+          set({ visualizerState: 'TOKEN_PARSED' });
+          setTimeout(() => set({ visualizerState: 'VERIFYING_SIGNATURE' }), 1000);
+          setTimeout(() => set({ visualizerState: 'SIGNATURE_VALID' }), 2500);
+        } else if (newLog.action === 'ESCALATION_TRIGGERED') {
+          set({ visualizerState: 'ESCALATION_PENDING' });
+        } else if (newLog.action === 'PAYMENT_SETTLEMENT') {
+           set({ visualizerState: newLog.status === 'success' ? 'SETTLED' : 'REJECTED' });
+        }
       });
 
       socket.on('agent_thought', (thought: AgentThought) => {
@@ -89,7 +104,7 @@ export const useAgentStore = create<AgentStore>((set, get) => {
         socket.disconnect();
         socket = null;
       }
-      set({ isPolling: false, socket: null });
+      set({ isPolling: false, socket: null, visualizerState: 'IDLE' });
     }
   };
 });
